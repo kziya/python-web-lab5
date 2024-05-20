@@ -1,20 +1,17 @@
+from django.db import models
+
+
 # Create your models here.
-class User:
-    def __init__(self, id: int, email: str):
-        self.id = id
-        self.email = email
+
+class User(models.Model):
+    email = models.EmailField(unique=True)
 
 
-class Food:
-    def __init__(self, id: int, name: str, price: float):
-        self.id = id
-        self.name = name
-        self.price = price
+class Food(models.Model):
+    name = models.CharField(max_length=50)
+    price = models.FloatField()
 
 
-class Order:
-    def __init__(self, id: int, idUser: int, idFood: int, quantity: int):
-        self.id = id
-        self.idUser = idUser
-        self.idFood = idFood
-        self.quantity = quantity
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    food = models.ForeignKey(Food, on_delete=models.CASCADE)

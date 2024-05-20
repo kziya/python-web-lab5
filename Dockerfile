@@ -14,5 +14,8 @@ RUN python -m pip install -r requirements.txt
 
 
 COPY . /app
+RUN python ./app/manage.py makemigrations
+RUN python ./app/manage.py migrate
+
 EXPOSE 3000
 CMD ["python", "./app/manage.py", "runserver", "0.0.0.0:8000"]

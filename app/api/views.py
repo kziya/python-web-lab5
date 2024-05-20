@@ -1,13 +1,9 @@
-import json
+# views.py
 
+import json
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.views.decorators.csrf import csrf_exempt
-
 from .models import User, Food, Order
-
-users = []
-foods = []
-orders = []
 
 
 # Utility function to parse JSON request body
@@ -19,31 +15,32 @@ def parse_json(request):
 @csrf_exempt
 def user_list_view(request):
     if request.method == 'GET':
-        return JsonResponse([user.__dict__ for user in users], safe=False)
+        users = User.objects.all().values()
+        return JsonResponse(list(users), safe=False)
     elif request.method == 'POST':
         data = parse_json(request)
-        user = User(len(users) + 1, data['email'])
-        users.append(user)
-        return JsonResponse(user.__dict__)
+        user = User.objects.create(email=data['email'])
+        return JsonResponse({'id': user.id, 'email': user.email})
     else:
         return HttpResponseNotAllowed(['GET', 'POST'])
 
 
 @csrf_exempt
 def user_detail_view(request, user_id):
-    user = next((u for u in users if u.id == user_id), None)
-    if not user:
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
 
     if request.method == 'GET':
-        return JsonResponse(user.__dict__)
+        return JsonResponse({'id': user.id, 'email': user.email})
     elif request.method == 'PATCH':
         data = parse_json(request)
-        user.name = data.get('name', user.name)
         user.email = data.get('email', user.email)
-        return JsonResponse(user.__dict__)
+        user.save()
+        return JsonResponse({'id': user.id, 'email': user.email})
     elif request.method == 'DELETE':
-        users.remove(user)
+        user.delete()
         return JsonResponse({'message': 'User deleted'})
     else:
         return HttpResponseNotAllowed(['GET', 'PATCH', 'DELETE'])
@@ -53,31 +50,33 @@ def user_detail_view(request, user_id):
 @csrf_exempt
 def food_list_view(request):
     if request.method == 'GET':
-        return JsonResponse([food.__dict__ for food in foods], safe=False)
+        foods = Food.objects.all().values()
+        return JsonResponse(list(foods), safe=False)
     elif request.method == 'POST':
         data = parse_json(request)
-        food = Food(len(foods) + 1, data['name'], float(data['price']))
-        foods.append(food)
-        return JsonResponse(food.__dict__)
+        food = Food.objects.create(name=data['name'], price=float(data['price']))
+        return JsonResponse({'id': food.id, 'name': food.name, 'price': food.price})
     else:
         return HttpResponseNotAllowed(['GET', 'POST'])
 
 
 @csrf_exempt
 def food_detail_view(request, food_id):
-    food = next((f for f in foods if f.id == food_id), None)
-    if not food:
+    try:
+        food = Food.objects.get(id=food_id)
+    except Food.DoesNotExist:
         return JsonResponse({'error': 'Food not found'}, status=404)
 
     if request.method == 'GET':
-        return JsonResponse(food.__dict__)
+        return JsonResponse({'id': food.id, 'name': food.name, 'price': food.price})
     elif request.method == 'PATCH':
         data = parse_json(request)
         food.name = data.get('name', food.name)
         food.price = float(data.get('price', food.price))
-        return JsonResponse(food.__dict__)
+        food.save()
+        return JsonResponse({'id': food.id, 'name': food.name, 'price': food.price})
     elif request.method == 'DELETE':
-        foods.remove(food)
+        food.delete()
         return JsonResponse({'message': 'Food deleted'})
     else:
         return HttpResponseNotAllowed(['GET', 'PATCH', 'DELETE'])
@@ -87,38 +86,43 @@ def food_detail_view(request, food_id):
 @csrf_exempt
 def order_list_view(request):
     if request.method == 'GET':
-        return JsonResponse([order.__dict__ for order in orders], safe=False)
+        orders = Order.objects.all().values()
+        return JsonResponse(list(orders), safe=False)
     elif request.method == 'POST':
         data = parse_json(request)
-        user = next((u for u in users if u.id == int(data['user_id'])), None)
-        food = next((f for f in foods if f.id == int(data['food_id'])), None)
-        if user and food:
-            order = Order(len(orders) + 1, user, food, int(data['quantity']))
-            orders.append(order)
-            return JsonResponse(order.__dict__)
-        return JsonResponse({'error': 'Invalid user or food id'}, status=400)
+        try:
+            user = User.objects.get(id=int(data['user_id']))
+            food = Food.objects.get(id=int(data['food_id']))
+        except (User.DoesNotExist, Food.DoesNotExist):
+            return JsonResponse({'error': 'Invalid user or food id'}, status=400)
+        order = Order.objects.create(user=user, food=food)
+        return JsonResponse({'id': order.id, 'user': order.user.id, 'food': order.food.id})
     else:
         return HttpResponseNotAllowed(['GET', 'POST'])
 
 
 @csrf_exempt
 def order_detail_view(request, order_id):
-    order = next((o for o in orders if o.id == order_id), None)
-    if not order:
+    try:
+        order = Order.objects.get(id=order_id)
+    except Order.DoesNotExist:
         return JsonResponse({'error': 'Order not found'}, status=404)
 
     if request.method == 'GET':
-        return JsonResponse(order.__dict__)
+        return JsonResponse({'id': order.id, 'user': order.user.id, 'food': order.food.id})
     elif request.method == 'PATCH':
         data = parse_json(request)
-        user = next((u for u in users if u.id == int(data['user_id'])), order.user)
-        food = next((f for f in foods if f.id == int(data['food_id'])), order.food)
+        try:
+            user = User.objects.get(id=int(data['user_id']))
+            food = Food.objects.get(id=int(data['food_id']))
+        except (User.DoesNotExist, Food.DoesNotExist):
+            return JsonResponse({'error': 'Invalid user or food id'}, status=400)
         order.user = user
         order.food = food
-        order.quantity = int(data.get('quantity', order.quantity))
-        return JsonResponse(order.__dict__)
+        order.save()
+        return JsonResponse({'id': order.id, 'user': order.user.id, 'food': order.food.id})
     elif request.method == 'DELETE':
-        orders.remove(order)
+        order.delete()
         return JsonResponse({'message': 'Order deleted'})
     else:
         return HttpResponseNotAllowed(['GET', 'PATCH', 'DELETE'])
